@@ -87,12 +87,8 @@ async fn websocket_callback(mut socket: WebSocket, state: Arc<AppState>) {
                                             }
                                         }
                                     } else {
-                                        // Not a resize message, treat as regular input
-                                        info!("Received text message from client: {}", t);
-                                        if let Err(e) = session.channel.data(t.as_bytes()).await {
-                                            error!("Failed to send data to SSH channel: {e}");
-                                            break;
-                                        }
+                                        error!("unsupported message type: {}", resize_msg.type_field);
+                                        break;
                                     }
                                 } else {
                                     // Not a JSON message or not a valid resize message, treat as regular input

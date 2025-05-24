@@ -23,6 +23,7 @@ pub struct Cli {
 pub async fn cmd_run(addr: String, timeout: u64) -> Result<(), anyhow::Error> {
     let mut stdio = std::io::stdout();
     let stdin = std::io::stdin();
+    
     stdio.write("请输入账号：".as_bytes())?;
     stdio.flush()?;
     let mut user = String::new();
