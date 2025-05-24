@@ -37,7 +37,7 @@
 
 成功启动后，会输出访问地址，例如：
 
-```
+```text
 INFO serve on http://<local_ip>:<assigned_port>/static/shell.html
 ```
 
