@@ -7,7 +7,7 @@ mod cli;
 
 #[tokio::main]
 async fn main() {
-    logger::init_logger();
+    logger::init_logger(std::io::stdout);
 
     let args = Cli::parse();
 

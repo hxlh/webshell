@@ -99,7 +99,7 @@ mod tests {
     use super::*;
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_session() {
-        init_logger();
+        init_logger(std::io::stdout);
         let mut s = Session::create(
             "127.0.0.1:22",
             "root",

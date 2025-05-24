@@ -12,5 +12,7 @@ tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt"] }
 tower-http = { version = "0.6.4", features = ["fs"] }
 serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0"
 clap = { version = "4.5.11", features = ["derive"] }
 rpassword = "7.4.0"
+local-ip-address = "0.6.5"

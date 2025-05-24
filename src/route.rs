@@ -2,14 +2,11 @@ use std::sync::Arc;
 
 use axum::{
     Extension,
-    extract::{
-        Query, State,
-        ws::{Message, WebSocket, WebSocketUpgrade},
-    },
+    extract::ws::{Message, WebSocket, WebSocketUpgrade},
     response::IntoResponse,
 };
 use russh::ChannelMsg;
-use tokio::io::AsyncReadExt;
+use serde::Deserialize;
 use tracing::{error, info};
 
 use crate::session::AppState;
@@ -57,7 +54,6 @@ async fn websocket_callback(mut socket: WebSocket, state: Arc<AppState>) {
         )
         .await
         .unwrap();
-
     session.channel.request_shell(true).await.unwrap();
     // session.channel.exec(true, "pwd").await.unwrap();
 
@@ -71,11 +67,40 @@ async fn websocket_callback(mut socket: WebSocket, state: Arc<AppState>) {
                         info!("msg:{:?}",msg);
                         match msg {
                             Message::Text(t) => {
-                                // Send text message to SSH channel
-                                info!("Received text message from client: {}", String::from_utf8_lossy(t.as_bytes()));
-                                if let Err(e) = session.channel.data(t.as_bytes()).await {
-                                    error!("Failed to send data to SSH channel: {e}");
-                                    break;
+                                // Attempt to parse as JSON for resize messages
+                                #[derive(Deserialize)]
+                                struct ResizeMessage {
+                                    #[serde(rename = "type")]
+                                    type_field: String,
+                                    cols: u32,
+                                    rows: u32,
+                                }
+
+                                if let Ok(resize_msg) = serde_json::from_str::<ResizeMessage>(&t) {
+                                    if resize_msg.type_field == "resize" {
+                                        info!("Received resize message: cols={}, rows={}", resize_msg.cols, resize_msg.rows);
+                                        if let Err(e) = session.channel.window_change(resize_msg.cols, resize_msg.rows, 0, 0).await {
+                                            error!("Failed to send window_change to SSH channel: {e}");
+                                            // Decide if we should break here or just log the error
+                                            if let Err(e) = session.channel.window_change(resize_msg.cols, resize_msg.rows, 0, 0).await {
+                                                error!("Failed to send window_change to SSH channel: {e}");
+                                            }
+                                        }
+                                    } else {
+                                        // Not a resize message, treat as regular input
+                                        info!("Received text message from client: {}", t);
+                                        if let Err(e) = session.channel.data(t.as_bytes()).await {
+                                            error!("Failed to send data to SSH channel: {e}");
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    // Not a JSON message or not a valid resize message, treat as regular input
+                                    info!("Received text message from client: {}", t);
+                                    if let Err(e) = session.channel.data(t.as_bytes()).await {
+                                        error!("Failed to send data to SSH channel: {e}");
+                                        break;
+                                    }
                                 }
                             },
                             Message::Close(c) => {

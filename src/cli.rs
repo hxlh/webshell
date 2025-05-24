@@ -2,6 +2,7 @@ use std::{io::Write, sync::Arc, time};
 
 use axum::{Extension, Router, http::Request, routing::get};
 use clap::Parser;
+use local_ip_address::local_ip;
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 use tracing::info;
@@ -26,28 +27,30 @@ pub async fn cmd_run(addr: String, timeout: u64) -> Result<(), anyhow::Error> {
     stdio.flush()?;
     let mut user = String::new();
     stdin.read_line(&mut user)?;
+    user = user.trim_end_matches("\n").into();
+
     stdio.write("请输入密码：".as_bytes())?;
     stdio.flush()?;
     let pwd = rpassword::read_password()?;
 
-    info!(
-        "addr: {},user: {}, pwd: {}",
-        addr,
-        user.strip_suffix("\n").unwrap(),
-        pwd
-    );
-
     let state = Arc::new(AppState::new(
-        "127.0.0.1:22",
-        "root",
-        "123456",
+        &addr,
+        &user,
+        &pwd,
         time::Duration::from_secs(timeout),
     ));
+
+    let ip = local_ip().unwrap();
+    let listener = TcpListener::bind("0.0.0.0:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+
+    info!("serve on http://{}:{}/static/shell.html", ip, port);
+
     let app = Router::new()
         .route("/ws", get(websocket_handler))
         .layer(Extension(state))
         .nest_service("/static", ServeDir::new("web"));
-    let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
+
     axum::serve(listener, app).await.unwrap();
 
     Ok(())
