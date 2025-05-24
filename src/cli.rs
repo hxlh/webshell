@@ -1,9 +1,9 @@
-use std::{io::Write, sync::Arc, time};
+use std::{io::Write, sync::Arc};
 
 use axum::{Extension, Router, http::Request, routing::get};
 use clap::Parser;
 use local_ip_address::local_ip;
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, time};
 use tower_http::services::ServeDir;
 use tracing::info;
 use webshell::{logger, route::websocket_handler, session::AppState};
@@ -51,7 +51,16 @@ pub async fn cmd_run(addr: String, timeout: u64) -> Result<(), anyhow::Error> {
         .layer(Extension(state))
         .nest_service("/static", ServeDir::new("web"));
 
-    axum::serve(listener, app).await.unwrap();
+    let handle = tokio::spawn(async {
+        axum::serve(listener, app).await.unwrap();
+    });
 
+    let start = time::Instant::now();
+    while start.elapsed() < time::Duration::from_secs(timeout) {
+        time::sleep(time::Duration::from_secs(1)).await;
+    }
+    handle.abort();
+
+    info!("server exit because of timeout");
     Ok(())
 }
